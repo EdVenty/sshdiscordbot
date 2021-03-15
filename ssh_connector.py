@@ -159,7 +159,7 @@ class BlockedHosts:
             return True
         return False
 
-Token = #insert token here
+Token = "NzUyNTIyMDk1Mjk2MTE4ODQ1.X1Y20A.VdU4tzyWZiSx1WYY4cONwEzjFAc"
 prefix = '~'
 bot = commands.Bot(command_prefix=prefix)
 errors = Errors()
@@ -268,7 +268,10 @@ async def answer(ctx: Context, code):
 async def end(ctx: Context, connection_id=None):
     """Завершить ssh соединение"""
     if connection_id == None:
-        connection_id = channel_connections[ctx.channel.id]
+        try:
+            connection_id = channel_connections[ctx.channel.id]
+        except KeyError:
+            return await ctx.send(lang["bot.command.end.error.no_current_connection"])
     connection_id = int(connection_id)
     if sshs.__contains__(connection_id):
         try:
@@ -318,8 +321,7 @@ async def clist(ctx: Context):
                     out += lang["bot.command.clist.message.ssh_connection_now"].format(i, dict_conn["connection_name"], dict_conn["id"])
         if not now:
             out += lang["bot.command.clist.message.ssh_connection"].format(i, dict_conn["connection_name"], dict_conn["id"])
-    user: discord.User = bot.get_user(user_id)
-    await user.send(out)
+    await ctx.author.send(out)
     if ctx.channel.type != discord.ChannelType.private:
         await ctx.send(lang["bot.command.clist.success.sended_to_LS"])
                             
