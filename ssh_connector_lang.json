@@ -1,6 +1,8 @@
 {
     "bot.data.send.loop": "Ответ от сервера: ```{}```",
 
+    "bot.global.error.no_access_to_use": "У вас нет доступа к этой команде!",
+
     "bot.command.start.process.starting": "Подключение к {}",
     "bot.command.start.error.start": "Во время подключения к серверу произошла ошибка. Трэйсбэк код: {}.",
     "bot.command.start.error.AuthenticationException": "Ошибка аутентификации! Проверьте правильность логина и пароля.",
