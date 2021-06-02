@@ -1,4 +1,5 @@
 # sshdiscordbot
-SSH бот для discord. Для работы вставить токен дискорд бота.
+SSH bot for Discord.
+Paste your tokent into `token.txt`
 
-Пожалуйста, подпишитесь на мой дискорд сервер https://discord.gg/qfNh7Cu. Спасибо!
+Contacts | https://discord.gg/qfNh7Cu
