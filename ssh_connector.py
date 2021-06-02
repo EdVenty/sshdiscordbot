@@ -184,8 +184,6 @@ class UserRolesController:
             bool: If member has role
         """
         specific_role = ctx.guild.get_role(role_id)  # get role
-        sr_members = specific_role.members  # get members which has specific role
-        specific_role in ctx.message.author.roles
         return specific_role in ctx.message.author.roles
 
     def _member_has_one_of_roles(self, ctx: Context, role_ids: List[int]) -> bool:
