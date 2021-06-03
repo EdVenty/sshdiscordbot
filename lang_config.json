@@ -1,0 +1,8 @@
+{
+    "codes": {
+        "en": "lang/en_us.json",
+        "ru": "lang/ru_ru.json"
+    },
+
+    "default": "en" 
+}
