@@ -2,7 +2,7 @@ import logging
 import traceback as tb
 from threading import Thread
 import logging
-from typing import List
+from typing import List, Union
 import paramiko
 # from paramiko import AuthenticationException
 from paramiko.ssh_exception import NoValidConnectionsError, AuthenticationException
@@ -165,14 +165,15 @@ class Lang:
             file.write(json.dumps(guilds))
         return True
 
-    def get(self, guild_id: int, code: str) -> str:
-        with open(self.guilds_langs_filename, 'r', encoding='UTF-8') as file:
-            guilds = json.loads(file.read())
+    def get(self, guild_id: Union[int, None], code: str) -> str:
         with open(self.config_filename,'r', encoding='UTF-8') as file:
             config = json.loads(file.read())
         lang_code = config['default']
-        if str(guild_id) in guilds:
-            lang_code = guilds[str(guild_id)]
+        if guild_id is not None:
+            with open(self.guilds_langs_filename, 'r', encoding='UTF-8') as file:
+                guilds = json.loads(file.read())
+            if str(guild_id) in guilds:
+                lang_code = guilds[str(guild_id)]
         with open(config['codes'][lang_code], 'r', encoding='UTF-8') as file:
             phrases = json.loads(file.read())
         if code in phrases:
@@ -277,30 +278,30 @@ async def start(ctx: Context, ip, user, password):
         password (str): Password
     """
     if not roles_controller.author_has_allowed_role(ctx):
-        return await ctx.send(lang.get(ctx.guild.id, "bot.global.error.no_access_to_use"))
+        return await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.global.error.no_access_to_use"))
     if not blocked_hosts.if_allowed(ip, ctx.author.id):
-        await ctx.send(lang.get(ctx.guild.id, "bot.command.start.error.no_permissions").format(ip))
+        await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.start.error.no_permissions").format(ip))
         return
     log.info("Запрос на соединение с {}.".format(ip))
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    message = await ctx.send(lang.get(ctx.guild.id, "bot.command.start.process.starting").format(ip))
+    message = await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.start.process.starting").format(ip))
     try:
         client.connect(hostname=ip, username=user, password=password, port=22)
         channel = client.invoke_shell()
         ssh_id = sshs.add_connection(client, ip, channel, ctx.author.id)
         channel_connections.append(ctx.channel.id, ssh_id)
-        await message.edit(content=lang.get(ctx.guild.id, "bot.command.start.success.started").format(ip, ssh_id))
+        await message.edit(content=lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.start.success.started").format(ip, ssh_id))
         log.info("Session with VPS {} started.".format(ip))
     except AuthenticationException:
-        await ctx.send(lang.get(ctx.guild.id, "bot.command.start.error.AuthenticationException"))
+        await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.start.error.AuthenticationException"))
         log.info(
             "An error occured while trying to connect to {}. Wrong login or password.".format(ip))
     except NoValidConnectionsError:
-        await ctx.send(lang.get(ctx.guild.id, "bot.command.start.error.NoValidConnectionsError"))
+        await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.start.error.NoValidConnectionsError"))
     except Exception as err:
         err_code = errors.add_error(err)
-        await ctx.send(lang.get(ctx.guild.id, "bot.command.start.error.start").format(err_code))
+        await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.start.error.start").format(err_code))
         log.info("An unknown error occured while trying to connect to {}. Traceback code: {}.".format(
             ip, err_code))
         raise err
@@ -314,11 +315,11 @@ async def traceback(ctx: Context, code: int):
         code (int): Traceback code.
     """
     if not roles_controller.author_has_allowed_role(ctx):
-        return await ctx.send(lang.get(ctx.guild.id, "bot.global.error.no_access_to_use"))
+        return await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.global.error.no_access_to_use"))
     if not errors.__contains__(code):
-        await ctx.send(lang.get(ctx.guild.id, "bot.command.traceback.error.wrong_code"))
+        await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.traceback.error.wrong_code"))
         return
-    await ctx.send(lang.get(ctx.guild.id, "bot.command.traceback.success.traceback").format(code, errors.get_traceback(code)))
+    await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.traceback.success.traceback").format(code, errors.get_traceback(code)))
 
 
 @bot.command(pass_context=True)
@@ -329,12 +330,12 @@ async def connect(ctx: Context, ssh_id):
         ssh_id (int): SSH session id.
     """
     if not roles_controller.author_has_allowed_role(ctx):
-        return await ctx.send(lang.get(ctx.guild.id, "bot.global.error.no_access_to_use"))
+        return await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.global.error.no_access_to_use"))
     if sshs.__contains__(int(ssh_id)):
         channel_connections[ctx.channel.id] = int(ssh_id)
-        await ctx.send(lang.get(ctx.guild.id, "bot.command.connect.success.connection_changed").format(sshs[int(ssh_id)]["connection_name"]))
+        await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.connect.success.connection_changed").format(sshs[int(ssh_id)]["connection_name"]))
     else:
-        await ctx.send(lang.get(ctx.guild.id, "bot.command.connect.error.wrong_connection_id"))
+        await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.connect.error.wrong_connection_id"))
 
 
 @bot.command(pass_context=True)
@@ -345,20 +346,20 @@ async def send(ctx: Context, *, command):
         command (str): Command to execute
     """
     if not roles_controller.author_has_allowed_role(ctx):
-        return await ctx.send(lang.get(ctx.guild.id, "bot.global.error.no_access_to_use"))
+        return await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.global.error.no_access_to_use"))
     if channel_connections.__contains__(ctx.channel.id):
         client: paramiko.SSHClient = sshs[channel_connections[ctx.channel.id]]["conn"]
-        message = await ctx.send(lang.get(ctx.guild.id, "bot.command.send.process.executing"))
+        message = await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.send.process.executing"))
         try:
             channel = sshs[channel_connections[ctx.channel.id]]["channel"]
             channel.send(command + '\n')
-            await message.edit(content=lang.get(ctx.guild.id, "bot.command.send.success.sended"))
+            await message.edit(content=lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.send.success.sended"))
         except Exception as err:
             err_code = errors.add_error(err)
-            await ctx.send(lang.get(ctx.guild.id, "bot.command.send.error.any_error").format(err_code))
+            await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.send.error.any_error").format(err_code))
             raise err
     else:
-        await ctx.send(lang.get(ctx.guild.id, "bot.command.send.error.no_connection"))
+        await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.send.error.no_connection"))
 
 
 @bot.command(pass_context=True)
@@ -369,21 +370,21 @@ async def answer(ctx: Context, code):
         code (int): Answer code.
     """
     if not roles_controller.author_has_allowed_role(ctx):
-        return await ctx.send(lang.get(ctx.guild.id, "bot.global.error.no_access_to_use"))
+        return await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.global.error.no_access_to_use"))
     if answers.__contains__(int(code)):
         answer_ = answers[int(code)]
         if len(answer_) > 1000:
             i = 0
             while(i < len(answer_)):
                 if i == 0:
-                    await ctx.send(lang.get(ctx.guild.id, "bot.command.answer.success.answer_page_one").format(code, answer_[i:i+1000]))
+                    await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.answer.success.answer_page_one").format(code, answer_[i:i+1000]))
                 else:
-                    await ctx.send(lang.get(ctx.guild.id, "bot.command.answer.success.answer_page").format(int(i/1000) + 1, answer_[i:i+1000]))
+                    await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.answer.success.answer_page").format(int(i/1000) + 1, answer_[i:i+1000]))
                 i += 1000
         else:
-            await ctx.send(lang.get(ctx.guild.id, "bot.command.answer.success.answer").format(code, answer_))
+            await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.answer.success.answer").format(code, answer_))
     else:
-        await ctx.send(lang.get(ctx.guild.id, "bot.command.answer.error.wrong_code"))
+        await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.answer.error.wrong_code"))
 
 
 @bot.command(pass_context=True)
@@ -397,46 +398,46 @@ async def end(ctx: Context, connection_id=None):
         [type]: [description]
     """
     if not roles_controller.author_has_allowed_role(ctx):
-        return await ctx.send(lang.get(ctx.guild.id, "bot.global.error.no_access_to_use"))
+        return await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.global.error.no_access_to_use"))
     try:
         connection_id = channel_connections[ctx.channel.id]
     except KeyError:
-        return await ctx.send(lang.get(ctx.guild.id, "bot.command.end.error.no_current_connection"))
+        return await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.end.error.no_current_connection"))
     connection_id = int(connection_id)
     if sshs.__contains__(connection_id):
         try:
             sshs[connection_id]['conn'].close()
         except Exception as err:
             err_code = errors.add_error(err)
-            await ctx.send(lang.get(ctx.guild.id, "bot.command.end.error.any_error").format(err_code))
+            await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.end.error.any_error").format(err_code))
             raise err
         sshs.pop(connection_id)
         if channel_connections.__contains__(ctx.channel.id):
             if channel_connections[ctx.channel.id] == connection_id:
                 channel_connections.pop(ctx.channel.id)
-        await ctx.send(lang.get(ctx.guild.id, "bot.command.end.success.end"))
+        await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.end.success.end"))
     else:
-        await ctx.send(lang.get(ctx.guild.id, "bot.command.end.error.wrong_connection_id"))
+        await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.end.error.wrong_connection_id"))
 
 
 @bot.command(pass_context=True)
 async def disconnect(ctx: Context):
     """Disconnects from a current session. Imrortant: this action won't kill the session. Use `~end` to do it!"""
     if not roles_controller.author_has_allowed_role(ctx):
-        return await ctx.send(lang.get(ctx.guild.id, "bot.global.error.no_access_to_use"))
+        return await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.global.error.no_access_to_use"))
     if channel_connections.__contains__(ctx.channel.id):
         ssh_name = sshs[channel_connections[ctx.channel.id]]["connection_name"]
         channel_connections.pop(ctx.channel.id)
-        await ctx.send(lang.get(ctx.guild.id, "bot.command.disconnect.success.disconnected").format(ssh_name))
+        await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.disconnect.success.disconnected").format(ssh_name))
     else:
-        await ctx.send(lang.get(ctx.guild.id, "bot.command.disconnect.error.no_connection"))
+        await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.disconnect.error.no_connection"))
 
 
 @bot.command(pass_context=True)
 async def clist(ctx: Context):
     """Gets list of all your sessions."""
     if not roles_controller.author_has_allowed_role(ctx):
-        return await ctx.send(lang.get(ctx.guild.id, "bot.global.error.no_access_to_use"))
+        return await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.global.error.no_access_to_use"))
     user_id = ctx.author.id
     user_connections = []
     for connection in sshs.sshs:
@@ -444,33 +445,33 @@ async def clist(ctx: Context):
             user_connections.append(
                 {"id": connection, "connection_name": sshs.sshs[connection]["connection_name"]})
     if user_connections == []:
-        await ctx.send(lang.get(ctx.guild.id, "bot.command.clist.error.no_connections"))
+        await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.clist.error.no_connections"))
         return
-    out = lang.get(ctx.guild.id, "bot.command.clist.message.ssh_connections")
+    out = lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.clist.message.ssh_connections")
     for (i, dict_conn) in enumerate(user_connections):
         now = False
         if channel_connections.__contains__(ctx.channel.id):
             if channel_connections[ctx.channel.id] == dict_conn['id']:
                 now = True
                 if ctx.channel.type != discord.ChannelType.private:
-                    out += lang.get(ctx.guild.id, "bot.command.clist.message.ssh_connection_now_channel").format(
+                    out += lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.clist.message.ssh_connection_now_channel").format(
                         i, dict_conn["connection_name"], dict_conn["id"], ctx.channel.name)
                 else:
-                    out += lang.get(ctx.guild.id, "bot.command.clist.message.ssh_connection_now").format(
+                    out += lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.clist.message.ssh_connection_now").format(
                         i, dict_conn["connection_name"], dict_conn["id"])
         if not now:
-            out += lang.get(ctx.guild.id, "bot.command.clist.message.ssh_connection").format(
+            out += lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.clist.message.ssh_connection").format(
                 i, dict_conn["connection_name"], dict_conn["id"])
     await ctx.author.send(out)
     if ctx.channel.type != discord.ChannelType.private:
-        await ctx.send(lang.get(ctx.guild.id, "bot.command.clist.success.sended_to_LS"))
+        await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.clist.success.sended_to_LS"))
 
 
 @bot.command(pass_context=True)
 async def hamachi(ctx: Context, *args):
     """Hamachi module for bot. Read `~help` to know does it works."""
     if not roles_controller.author_has_allowed_role(ctx):
-        return await ctx.send(lang.get(ctx.guild.id, "bot.global.error.no_access_to_use"))
+        return await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.global.error.no_access_to_use"))
     if len(args) == 0:
         pass
     else:
@@ -482,13 +483,13 @@ async def hamachi(ctx: Context, *args):
             result = subprocess.run("sudo hamachi join {} {}".format(
                 hamachi_id, hamachi_password), shell=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE, encoding='CP866')
             if result.stdout == 'Joining {} .. failed, invalid password\n'.format(hamachi_id):
-                await ctx.send(lang.get(ctx.guild.id, "bot.command.hamachi.join.error.wrong_id_or_pass"))
+                await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.hamachi.join.error.wrong_id_or_pass"))
             elif result.stdout == 'Joining {} .. ok\n'.format(hamachi_id):
-                await ctx.send(lang.get(ctx.guild.id, "bot.command.hamachi.join.success.connected").format(hamachi_id))
+                await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.hamachi.join.success.connected").format(hamachi_id))
             elif result.stdout == 'Joining {} .. failed, you are already a member\n'.format(hamachi_id):
-                await ctx.send(lang.get(ctx.guild.id, "bot.command.hamachi.join.error.already_connected").format(hamachi_id))
+                await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.hamachi.join.error.already_connected").format(hamachi_id))
             else:
-                await ctx.send(lang.get(ctx.guild.id, "bot.command.hamachi.join.error.unknown_error"))
+                await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.hamachi.join.error.unknown_error"))
 
 @bot.command(pass_context=True, name="lang")
 async def lang_command(ctx: Context, *args):
@@ -504,13 +505,13 @@ async def lang_command(ctx: Context, *args):
                 jsoned = json.loads(file.read())
             codes_dict = jsoned['codes']
             for code_name in codes_dict:
-                codes_str += lang.get(ctx.guild.id, "bot.command.lang.text.code_element").format(code_name)
-            return await ctx.send(lang.get(ctx.guild.id, "bot.command.lang.process.list_of_codes").format(codes_str))
+                codes_str += lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.lang.text.code_element").format(code_name)
+            return await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.lang.process.list_of_codes").format(codes_str))
         else:
             if lang.set_lang(ctx.guild.id, args[0]):
-                return await ctx.send(lang.get(ctx.guild.id, "bot.command.lang.success.set").format(args[0]))
+                return await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.lang.success.set").format(args[0]))
             else:
-                return await ctx.send(lang.get(ctx.guild.id, "bot.command.lang.error.wrong_code").format(args[0]))
+                return await ctx.send(lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.lang.error.wrong_code").format(args[0]))
 
 
 bot.remove_command('help')
@@ -520,50 +521,50 @@ bot.remove_command('help')
 async def help(ctx: Context, *args):
     if len(args) == 0:
         embed = discord.Embed(
-            description=lang.get(ctx.guild.id, "bot.embed.description"), color=0xe88617)
+            description=lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.embed.description"), color=0xe88617)
         embed.set_thumbnail(
             url="https://cdn.discordapp.com/app-icons/752522095296118845/236e26f1a371364e408b7621d04df5e0.png?size=128")
-        embed.set_author(name=lang.get(ctx.guild.id, "bot.embed.author.name"),
+        embed.set_author(name=lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.embed.author.name"),
                          icon_url="https://cdn.discordapp.com/app-icons/752522095296118845/236e26f1a371364e408b7621d04df5e0.png?size=64")
-        embed.add_field(name=lang.get(ctx.guild.id, "bot.embed.field.commands.name"),
-                        value=lang.get(ctx.guild.id, "bot.embed.field.commands.command"))
-        embed.add_field(name=lang.get(ctx.guild.id, "bot.embed.field.docs.name"),
-                        value=lang.get(ctx.guild.id, "bot.embed.field.docs.command"), inline=True)
-        embed.add_field(name=lang.get(ctx.guild.id, "bot.embed.admin.name"),
-                        value=lang.get(ctx.guild.id, "bot.embed.admin.link"))
+        embed.add_field(name=lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.embed.field.commands.name"),
+                        value=lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.embed.field.commands.command"))
+        embed.add_field(name=lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.embed.field.docs.name"),
+                        value=lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.embed.field.docs.command"), inline=True)
+        embed.add_field(name=lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.embed.admin.name"),
+                        value=lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.embed.admin.link"))
         await ctx.send(embed=embed)
     else:
         if args[0] == "commands":
             embed = discord.Embed(
-                title=lang.get(ctx.guild.id, "bot.embed.args.command.title"), color=0xe88617)
-            embed.add_field(name=lang.get(ctx.guild.id, "bot.command.lang.name"),
-                            value=lang.get(ctx.guild.id, "bot.command.lang.description"), inline=False)
-            embed.add_field(name=lang.get(ctx.guild.id, "bot.command.start.name"),
-                            value=lang.get(ctx.guild.id, "bot.command.start.description"), inline=False)
-            embed.add_field(name=lang.get(ctx.guild.id, "bot.command.traceback.name"),
-                            value=lang.get(ctx.guild.id, "bot.command.traceback.description"), inline=False)
-            embed.add_field(name=lang.get(ctx.guild.id, "bot.command.connect.name"),
-                            value=lang.get(ctx.guild.id, "bot.command.connect.description"), inline=False)
-            embed.add_field(name=lang.get(ctx.guild.id, "bot.command.send.name"),
-                            value=lang.get(ctx.guild.id, "bot.command.send.description"), inline=False)
-            embed.add_field(name=lang.get(ctx.guild.id, "bot.command.end.name"),
-                            value=lang.get(ctx.guild.id, "bot.command.end.description"), inline=False)
-            embed.add_field(name=lang.get(ctx.guild.id, "bot.command.disconnect.name"),
-                            value=lang.get(ctx.guild.id, "bot.command.disconnect.description"), inline=False)
-            embed.add_field(name=lang.get(ctx.guild.id, "bot.command.clist.name"),
-                            value=lang.get(ctx.guild.id, "bot.command.clist.description"), inline=False)
-            embed.add_field(name=lang.get(ctx.guild.id, "bot.command.hamachi.name"),
-                            value=lang.get(ctx.guild.id, "bot.command.hamachi.description"), inline=False)
-            embed.set_footer(text=lang.get(ctx.guild.id, "bot.embed.footer.commands.text"))
+                title=lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.embed.args.command.title"), color=0xe88617)
+            embed.add_field(name=lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.lang.name"),
+                            value=lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.lang.description"), inline=False)
+            embed.add_field(name=lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.start.name"),
+                            value=lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.start.description"), inline=False)
+            embed.add_field(name=lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.traceback.name"),
+                            value=lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.traceback.description"), inline=False)
+            embed.add_field(name=lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.connect.name"),
+                            value=lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.connect.description"), inline=False)
+            embed.add_field(name=lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.send.name"),
+                            value=lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.send.description"), inline=False)
+            embed.add_field(name=lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.end.name"),
+                            value=lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.end.description"), inline=False)
+            embed.add_field(name=lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.disconnect.name"),
+                            value=lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.disconnect.description"), inline=False)
+            embed.add_field(name=lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.clist.name"),
+                            value=lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.clist.description"), inline=False)
+            embed.add_field(name=lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.hamachi.name"),
+                            value=lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.command.hamachi.description"), inline=False)
+            embed.set_footer(text=lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.embed.footer.commands.text"))
             await ctx.send(embed=embed)
         elif args[0] == "docs":
-            embed = discord.Embed(title=lang.get(ctx.guild.id, "bot.embed.docs.field.title"),
-                                  description=lang.get(ctx.guild.id, "bot.embed.docs.field.description"), color=0xe88617)
-            embed.add_field(name=lang.get(ctx.guild.id, "bot.embed.docs.field.start.name"),
-                            value=lang.get(ctx.guild.id, "bot.embed.docs.field.start.description"), inline=False)
-            embed.add_field(name=lang.get(ctx.guild.id, "bot.embed.docs.field.main.start"),
-                            value=lang.get(ctx.guild.id, "bot.embed.docs.field.main.description"))
-            embed.set_footer(text=lang.get(ctx.guild.id, "bot.embed.footer.docs.text"))
+            embed = discord.Embed(title=lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.embed.docs.field.title"),
+                                  description=lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.embed.docs.field.description"), color=0xe88617)
+            embed.add_field(name=lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.embed.docs.field.start.name"),
+                            value=lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.embed.docs.field.start.description"), inline=False)
+            embed.add_field(name=lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.embed.docs.field.main.start"),
+                            value=lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.embed.docs.field.main.description"))
+            embed.set_footer(text=lang.get(ctx.guild.id if ctx.guild is not None else None, "bot.embed.footer.docs.text"))
             await ctx.send(embed=embed)
 
 event_loop = discord.Client().loop
@@ -604,7 +605,8 @@ async def send_data():
         to_delete = []
         for message in messages_to_send:
             channel = bot.get_channel(message["channel_id"])
-            channel.send(lang.get(channel.guild.id, "bot.data.send.loop").format(message["text"]))
+            message['text'] = message['text'].replace("[01;34m", "")
+            await channel.send(lang.get(channel.guild.id, "bot.data.send.loop").format(message["text"]))
             to_delete.append(message)
         for todel in to_delete:
             messages_to_send.remove(todel)
