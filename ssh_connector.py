@@ -219,8 +219,9 @@ class UserRolesController:
 
 
 Token = None  # if none then will be picked up from a token.txt
-with open("token.txt", 'r') as file:
-    Token = file.read()
+if Token is None:
+    with open("token.txt", 'r') as file:
+        Token = file.read()
 
 prefix = '~'
 bot = commands.Bot(command_prefix=prefix)
